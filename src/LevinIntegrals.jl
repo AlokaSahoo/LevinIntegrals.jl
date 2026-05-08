@@ -12,4 +12,10 @@ export levin_collocation_solve
 export levin_integrate
 export levin_integrate_adaptive
 
+# Solver strategy types
+export LevinSolver
+export QRSolver
+export LUSolver
+export TSVDSolver
+
 end

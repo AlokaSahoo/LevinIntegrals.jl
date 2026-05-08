@@ -7,6 +7,9 @@
     - _levin_core        : shared internal helper (nodes → solve → endpoint p values)
     - levin_integrate    : fixed-order Levin integration (three dispatch methods)
     - levin_integrate_adaptive : adaptive h-refinement Levin integration
+
+    All public functions accept an optional `solver::LevinSolver` keyword
+    (default `QRSolver()`) that selects the linear-system factorization strategy.
 =#
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -14,7 +17,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    _levin_core(f, g_prime, a, b, k) -> (p_a, p_b, phys_nodes)
+    _levin_core(f, g_prime, a, b, k, solver) -> (p_a, p_b, phys_nodes)
 
 Internal workhorse shared by all `levin_integrate` dispatch methods.
 
@@ -22,12 +25,12 @@ Performs steps 1–5 of the Levin collocation algorithm:
 1. Generate Chebyshev-Lobatto nodes on ``[-1, 1]`` and map to ``[a, b]``.
 2. Evaluate ``f(x_j)`` and ``\\alpha(x_j) = i g'(x_j)``.
 3. Build basis matrix ``B`` and scaled differentiation matrix ``D``.
-4. Solve the collocation system.
+4. Solve the collocation system using `solver`.
 5. Evaluate the antiderivative ``p(x) = B \\mathbf{c}`` at the endpoints.
 
 Returns `(p_a, p_b, phys_nodes)` — the caller handles the oscillator evaluation.
 """
-function _levin_core(f, g_prime, a, b, k::Integer)
+function _levin_core(f, g_prime, a, b, k::Integer, solver::LevinSolver)
     # 1. Nodes
     ref_nodes  = chebyshev_lobatto_nodes(k)
     phys_nodes = map_nodes(ref_nodes, a, b)
@@ -42,7 +45,7 @@ function _levin_core(f, g_prime, a, b, k::Integer)
     D_scaled = D * (2.0 / (b - a))
 
     # 4. Solve
-    c = levin_collocation_solve(f_vals, D_scaled, B, alpha_vals)
+    c = levin_collocation_solve(f_vals, D_scaled, B, alpha_vals, solver)
 
     # 5. Endpoint antiderivative values
     #    Index 1 → cos(0) = +1 → mapped to b
@@ -54,7 +57,7 @@ function _levin_core(f, g_prime, a, b, k::Integer)
 end
 
 """
-    _levin_core_from_g(f, g, a, b, k) -> (p_a, p_b, g_a, g_b)
+    _levin_core_from_g(f, g, a, b, k, solver) -> (p_a, p_b, g_a, g_b)
 
 Internal workhorse for the g-only Levin integration dispatch.
 
@@ -67,7 +70,7 @@ finite differences.
 Returns `(p_a, p_b, g_a, g_b)` — the endpoint antiderivative values and the
 phase values ``g(a), g(b)`` (already available from evaluating `g` at the nodes).
 """
-function _levin_core_from_g(f, g, a, b, k::Integer)
+function _levin_core_from_g(f, g, a, b, k::Integer, solver::LevinSolver)
     # 1. Nodes
     ref_nodes  = chebyshev_lobatto_nodes(k)
     phys_nodes = map_nodes(ref_nodes, a, b)
@@ -86,7 +89,7 @@ function _levin_core_from_g(f, g, a, b, k::Integer)
     alpha_vals   = im .* complex.(g_prime_vals)
 
     # 5. Solve
-    c = levin_collocation_solve(f_vals, D_scaled, B, alpha_vals)
+    c = levin_collocation_solve(f_vals, D_scaled, B, alpha_vals, solver)
 
     # 6. Endpoint antiderivative values
     #    Index 1 → cos(0) = +1 → mapped to b
@@ -102,13 +105,13 @@ function _levin_core_from_g(f, g, a, b, k::Integer)
 end
 
 """
-    _levin_integrate_interval(f, g, a, b, k)
+    _levin_integrate_interval(f, g, a, b, k, solver)
 
 Compute the Levin integral on a single panel ``[a, b]`` with `k` collocation
 points, using spectral differentiation for ``g'``. Internal helper — not exported.
 """
-function _levin_integrate_interval(f, g, a, b, k::Integer)
-    p_a, p_b, g_a, g_b = _levin_core_from_g(f, g, a, b, k)
+function _levin_integrate_interval(f, g, a, b, k::Integer, solver::LevinSolver)
+    p_a, p_b, g_a, g_b = _levin_core_from_g(f, g, a, b, k, solver)
 
     w_a = exp(im * g_a)
     w_b = exp(im * g_b)
@@ -117,13 +120,13 @@ function _levin_integrate_interval(f, g, a, b, k::Integer)
 end
 
 """
-    _levin_integrate_interval(f, g, g_prime, a, b, k)
+    _levin_integrate_interval(f, g, g_prime, a, b, k, solver)
 
 Compute the Levin integral on a single panel ``[a, b]`` with `k` collocation
 points. Internal helper — not exported.
 """
-function _levin_integrate_interval(f, g, g_prime, a, b, k::Integer)
-    p_a, p_b, _ = _levin_core(f, g_prime, a, b, k)
+function _levin_integrate_interval(f, g, g_prime, a, b, k::Integer, solver::LevinSolver)
+    p_a, p_b, _ = _levin_core(f, g_prime, a, b, k, solver)
 
     w_a = exp(im * g(a))
     w_b = exp(im * g(b))
@@ -136,7 +139,7 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    levin_integrate(f, g, g_prime, a, b; k=16, n=1)
+    levin_integrate(f, g, g_prime, a, b; k=16, n=1, solver=QRSolver())
 
 Compute the oscillatory integral
 
@@ -161,6 +164,8 @@ collocation points, summing the results (composite Levin rule).
 # Keyword Arguments
 - `k::Integer = 16`: number of collocation points per panel.
 - `n::Integer = 1`: number of sub-intervals (panels) to divide ``[a, b]`` into.
+- `solver::LevinSolver = QRSolver()`: factorization strategy for the collocation
+  system. See [`LevinSolver`](@ref) for available options.
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -174,28 +179,37 @@ abs(result - exact)  # ≈ 0 to machine precision
 
 # Composite: 4 panels with 8 collocation points each
 result = levin_integrate(x -> exp(5x), x -> ω*x, x -> ω, 0.0, 2.0; k=8, n=4)
+
+# LU solver
+result = levin_integrate(x -> 1.0, x -> ω*x, x -> ω, 0.0, 1.0; solver=LUSolver())
+
+# Truncated SVD
+result = levin_integrate(x -> 1.0, x -> ω*x, x -> ω, 0.0, 1.0; solver=TSVDSolver())
 ```
 """
-function levin_integrate(f, g, g_prime, a, b; k::Integer = 16, n::Integer = 1)
+function levin_integrate(f, g, g_prime, a, b;
+                          k::Integer = 16,
+                          n::Integer = 1,
+                          solver::LevinSolver = QRSolver())
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     k < 2 && throw(ArgumentError("Need at least 2 collocation points, got k = $k"))
     n < 1 && throw(ArgumentError("Need at least 1 sub-interval, got n = $n"))
 
     if n == 1
-        return _levin_integrate_interval(f, g, g_prime, a, b, k)
+        return _levin_integrate_interval(f, g, g_prime, a, b, k, solver)
     end
 
     # Composite rule: divide [a, b] into n equal panels
     edges = range(a, b, length = n + 1)
     result = zero(ComplexF64)
     for i in 1:n
-        result += _levin_integrate_interval(f, g, g_prime, edges[i], edges[i + 1], k)
+        result += _levin_integrate_interval(f, g, g_prime, edges[i], edges[i + 1], k, solver)
     end
     return result
 end
 
 """
-    levin_integrate(f, g, a, b; k=16, n=1)
+    levin_integrate(f, g, a, b; k=16, n=1, solver=QRSolver())
 
 Compute the oscillatory integral when only the phase function `g(x)` is
 available. The derivative `g'(x)` is computed **spectrally** using the
@@ -209,6 +223,7 @@ Chebyshev differentiation matrix — no finite differences are needed.
 # Keyword Arguments
 - `k::Integer = 16`: number of collocation points per panel.
 - `n::Integer = 1`: number of sub-intervals (panels) to divide ``[a, b]`` into.
+- `solver::LevinSolver = QRSolver()`: factorization strategy. See [`LevinSolver`](@ref).
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -217,22 +232,28 @@ Chebyshev differentiation matrix — no finite differences are needed.
 ```julia
 ω = 100.0
 result = levin_integrate(x -> 1.0, x -> ω*x, 0.0, 1.0; k=32)
+
+# With TSVD solver
+result = levin_integrate(x -> 1.0, x -> ω*x, 0.0, 1.0; solver=TSVDSolver())
 ```
 """
-function levin_integrate(f, g, a::Real, b::Real; k::Integer = 16, n::Integer = 1)
+function levin_integrate(f, g, a::Real, b::Real;
+                          k::Integer = 16,
+                          n::Integer = 1,
+                          solver::LevinSolver = QRSolver())
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     k < 2 && throw(ArgumentError("Need at least 2 collocation points, got k = $k"))
     n < 1 && throw(ArgumentError("Need at least 1 sub-interval, got n = $n"))
 
     if n == 1
-        return _levin_integrate_interval(f, g, a, b, k)
+        return _levin_integrate_interval(f, g, a, b, k, solver)
     end
 
     # Composite rule: divide [a, b] into n equal panels
     edges = range(a, b, length = n + 1)
     result = zero(ComplexF64)
     for i in 1:n
-        result += _levin_integrate_interval(f, g, edges[i], edges[i + 1], k)
+        result += _levin_integrate_interval(f, g, edges[i], edges[i + 1], k, solver)
     end
     return result
 end
@@ -242,7 +263,7 @@ end
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    levin_integrate_adaptive(f, g, g_prime, a, b; k=16, atol=1e-12, rtol=1e-12, maxdepth=20)
+    levin_integrate_adaptive(f, g, g_prime, a, b; k=16, atol=1e-12, rtol=1e-12, maxdepth=20, solver=QRSolver())
 
 Adaptively compute the oscillatory integral
 
@@ -267,6 +288,7 @@ tolerance, the sub-interval is bisected and each half is refined recursively.
 - `atol::Real = 1e-12`: absolute error tolerance.
 - `rtol::Real = 1e-12`: relative error tolerance.
 - `maxdepth::Integer = 20`: maximum recursion depth.
+- `solver::LevinSolver = QRSolver()`: factorization strategy. See [`LevinSolver`](@ref).
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -276,19 +298,24 @@ tolerance, the sub-interval is bisected and each half is refined recursively.
 # Adaptive handles a rapidly-varying amplitude well
 result = levin_integrate_adaptive(
     x -> exp(5x), x -> 100.0*x, x -> 100.0, 0.0, 2.0)
+
+# With TSVD for maximum stability
+result = levin_integrate_adaptive(
+    x -> exp(5x), x -> 100.0*x, x -> 100.0, 0.0, 2.0; solver=TSVDSolver())
 ```
 """
 function levin_integrate_adaptive(f, g, g_prime, a, b;
                                    k::Integer = 16,
                                    atol::Real = 1e-12,
                                    rtol::Real = 1e-12,
-                                   maxdepth::Integer = 20)
+                                   maxdepth::Integer = 20,
+                                   solver::LevinSolver = QRSolver())
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
-    return _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, 0)
+    return _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, 0, solver)
 end
 
 """
-    levin_integrate_adaptive(f, g, a::Real, b::Real; k=16, atol=1e-12, rtol=1e-12, maxdepth=20)
+    levin_integrate_adaptive(f, g, a::Real, b::Real; k=16, atol=1e-12, rtol=1e-12, maxdepth=20, solver=QRSolver())
 
 Adaptive Levin integration when only the phase function `g(x)` is available.
 The derivative `g'(x)` is computed **spectrally** using the Chebyshev
@@ -300,24 +327,26 @@ function levin_integrate_adaptive(f, g, a::Real, b::Real;
                                    k::Integer = 16,
                                    atol::Real = 1e-12,
                                    rtol::Real = 1e-12,
-                                   maxdepth::Integer = 20)
+                                   maxdepth::Integer = 20,
+                                   solver::LevinSolver = QRSolver())
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
-    return _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, 0)
+    return _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, 0, solver)
 end
 
 """
-    _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, depth)
+    _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, depth, solver)
 
 Recursive bisection engine for adaptive Levin integration.
 """
-function _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, depth)
+function _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, depth,
+                          solver::LevinSolver)
     # Coarse estimate: single panel [a, b]
-    I_coarse = _levin_integrate_interval(f, g, g_prime, a, b, k)
+    I_coarse = _levin_integrate_interval(f, g, g_prime, a, b, k, solver)
 
     # Fine estimate: two half-panels
     m = (a + b) / 2
-    I_left  = _levin_integrate_interval(f, g, g_prime, a, m, k)
-    I_right = _levin_integrate_interval(f, g, g_prime, m, b, k)
+    I_left  = _levin_integrate_interval(f, g, g_prime, a, m, k, solver)
+    I_right = _levin_integrate_interval(f, g, g_prime, m, b, k, solver)
     I_fine  = I_left + I_right
 
     # Error estimate
@@ -329,27 +358,28 @@ function _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, depth)
     else
         # Recurse on each half
         I_left_refined  = _adaptive_levin(f, g, g_prime, a, m, k,
-                                           atol / 2, rtol, maxdepth, depth + 1)
+                                           atol / 2, rtol, maxdepth, depth + 1, solver)
         I_right_refined = _adaptive_levin(f, g, g_prime, m, b, k,
-                                           atol / 2, rtol, maxdepth, depth + 1)
+                                           atol / 2, rtol, maxdepth, depth + 1, solver)
         return I_left_refined + I_right_refined
     end
 end
 
 """
-    _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, depth)
+    _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, depth, solver)
 
 Recursive bisection engine for adaptive Levin integration using spectral
 differentiation for ``g'``.
 """
-function _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, depth)
+function _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, depth,
+                          solver::LevinSolver)
     # Coarse estimate: single panel [a, b]
-    I_coarse = _levin_integrate_interval(f, g, a, b, k)
+    I_coarse = _levin_integrate_interval(f, g, a, b, k, solver)
 
     # Fine estimate: two half-panels
     m = (a + b) / 2
-    I_left  = _levin_integrate_interval(f, g, a, m, k)
-    I_right = _levin_integrate_interval(f, g, m, b, k)
+    I_left  = _levin_integrate_interval(f, g, a, m, k, solver)
+    I_right = _levin_integrate_interval(f, g, m, b, k, solver)
     I_fine  = I_left + I_right
 
     # Error estimate
@@ -361,9 +391,9 @@ function _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, depth)
     else
         # Recurse on each half
         I_left_refined  = _adaptive_levin(f, g, a, m, k,
-                                             atol / 2, rtol, maxdepth, depth + 1)
+                                             atol / 2, rtol, maxdepth, depth + 1, solver)
         I_right_refined = _adaptive_levin(f, g, m, b, k,
-                                             atol / 2, rtol, maxdepth, depth + 1)
+                                             atol / 2, rtol, maxdepth, depth + 1, solver)
         return I_left_refined + I_right_refined
     end
 end

@@ -385,4 +385,108 @@ using Test
         end
     end
 
+    # ──────────────────────────────────────────────
+    # 10. Solver Strategy Types
+    # ──────────────────────────────────────────────
+    @testset "Solver strategies" begin
+
+        ω     = 100.0
+        exact = (exp(im * ω) - 1) / (im * ω)
+        f     = x -> 1.0
+        g     = x -> ω * x
+        gp    = x -> ω
+
+        @testset "Solver type hierarchy" begin
+            @test QRSolver()    isa LevinSolver
+            @test LUSolver()    isa LevinSolver
+            @test TSVDSolver()  isa LevinSolver
+            @test TSVDSolver(1e-12) isa LevinSolver
+            @test TSVDSolver().tol  == 1e-14
+            @test TSVDSolver(1e-10).tol == 1e-10
+        end
+
+        @testset "All solvers agree — levin_integrate (5-arg)" begin
+            r_qr   = levin_integrate(f, g, gp, 0.0, 1.0; k=32, solver=QRSolver())
+            r_lu   = levin_integrate(f, g, gp, 0.0, 1.0; k=32, solver=LUSolver())
+            r_tsvd = levin_integrate(f, g, gp, 0.0, 1.0; k=32, solver=TSVDSolver())
+
+            @test abs(r_qr   - exact) < 1e-10
+            @test abs(r_lu   - exact) < 1e-10
+            @test abs(r_tsvd - exact) < 1e-10
+            @test abs(r_qr - r_lu)   < 1e-10
+            @test abs(r_qr - r_tsvd) < 1e-10
+        end
+
+        @testset "All solvers agree — levin_integrate (4-arg, spectral g')" begin
+            r_qr   = levin_integrate(f, g, 0.0, 1.0; k=32, solver=QRSolver())
+            r_lu   = levin_integrate(f, g, 0.0, 1.0; k=32, solver=LUSolver())
+            r_tsvd = levin_integrate(f, g, 0.0, 1.0; k=32, solver=TSVDSolver())
+
+            @test abs(r_qr   - exact) < 1e-10
+            @test abs(r_lu   - exact) < 1e-10
+            @test abs(r_tsvd - exact) < 1e-10
+            @test abs(r_qr - r_lu)   < 1e-10
+            @test abs(r_qr - r_tsvd) < 1e-10
+        end
+
+        @testset "All solvers agree — levin_integrate_adaptive (5-arg)" begin
+            r_qr   = levin_integrate_adaptive(f, g, gp, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=QRSolver())
+            r_lu   = levin_integrate_adaptive(f, g, gp, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=LUSolver())
+            r_tsvd = levin_integrate_adaptive(f, g, gp, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=TSVDSolver())
+
+            @test abs(r_qr   - exact) < 1e-10
+            @test abs(r_lu   - exact) < 1e-10
+            @test abs(r_tsvd - exact) < 1e-10
+            @test abs(r_qr - r_lu)   < 1e-10
+            @test abs(r_qr - r_tsvd) < 1e-10
+        end
+
+        @testset "All solvers agree — levin_integrate_adaptive (4-arg, spectral g')" begin
+            r_qr   = levin_integrate_adaptive(f, g, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=QRSolver())
+            r_lu   = levin_integrate_adaptive(f, g, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=LUSolver())
+            r_tsvd = levin_integrate_adaptive(f, g, 0.0, 1.0; k=16, atol=1e-12,
+                                               solver=TSVDSolver())
+
+            @test abs(r_qr   - exact) < 1e-10
+            @test abs(r_lu   - exact) < 1e-10
+            @test abs(r_tsvd - exact) < 1e-10
+            @test abs(r_qr - r_lu)   < 1e-10
+            @test abs(r_qr - r_tsvd) < 1e-10
+        end
+
+        @testset "TSVDSolver accepts custom tolerance" begin
+            r1 = levin_integrate(f, g, gp, 0.0, 1.0; k=32, solver=TSVDSolver(1e-14))
+            r2 = levin_integrate(f, g, gp, 0.0, 1.0; k=32, solver=TSVDSolver(1e-10))
+            # Both should still give accurate results for a well-conditioned system
+            @test abs(r1 - exact) < 1e-10
+            @test abs(r2 - exact) < 1e-10
+        end
+
+        @testset "Backward compatibility — no solver kwarg" begin
+            # All existing call patterns must work unchanged
+            r1 = levin_integrate(f, g, gp, 0.0, 1.0; k=32)
+            r2 = levin_integrate(f, g, 0.0, 1.0; k=32)
+            r3 = levin_integrate_adaptive(f, g, gp, 0.0, 1.0; k=16, atol=1e-12)
+            r4 = levin_integrate_adaptive(f, g, 0.0, 1.0; k=16, atol=1e-12)
+
+            @test abs(r1 - exact) < 1e-10
+            @test abs(r2 - exact) < 1e-10
+            @test abs(r3 - exact) < 1e-10
+            @test abs(r4 - exact) < 1e-10
+        end
+
+        @testset "Composite Levin with non-default solver" begin
+            r_lu   = levin_integrate(f, g, gp, 0.0, 1.0; k=8, n=4, solver=LUSolver())
+            r_tsvd = levin_integrate(f, g, gp, 0.0, 1.0; k=8, n=4, solver=TSVDSolver())
+            @test abs(r_lu   - exact) < 1e-10
+            @test abs(r_tsvd - exact) < 1e-10
+        end
+
+    end
+
 end
