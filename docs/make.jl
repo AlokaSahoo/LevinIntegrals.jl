@@ -9,7 +9,7 @@ makedocs(;
     sitename="LevinIntegrals.jl",
     doctest=true,
     format=Documenter.HTML(;
-        repolink=""https://github.com/AlokaSahoo/LevinIntegrals.jl",
+        repolink="https://github.com/AlokaSahoo/LevinIntegrals.jl",
         edit_link="main",
         assets=String[],
     ),
