@@ -8,14 +8,14 @@ using Test
     # 1. Chebyshev-Lobatto Nodes
     # ──────────────────────────────────────────────
     @testset "chebyshev_lobatto_nodes" begin
-        @testset "n = 2 (endpoints only)" begin
+        @testset "k = 2 (endpoints only)" begin
             nodes = chebyshev_lobatto_nodes(2)
             @test length(nodes) == 2
             @test nodes[1] ≈ 1.0
             @test nodes[2] ≈ -1.0
         end
 
-        @testset "n = 5" begin
+        @testset "k = 5" begin
             nodes = chebyshev_lobatto_nodes(5)
             @test length(nodes) == 5
             @test nodes[1] ≈ 1.0
@@ -29,10 +29,10 @@ using Test
         end
 
         @testset "Symmetry" begin
-            for n in [5, 8, 17, 32]
-                nodes = chebyshev_lobatto_nodes(n)
-                for i in 1:n
-                    @test nodes[i] ≈ -nodes[n + 1 - i] atol=1e-14
+            for k in [5, 8, 17, 32]
+                nodes = chebyshev_lobatto_nodes(k)
+                for i in 1:k
+                    @test nodes[i] ≈ -nodes[k + 1 - i] atol=1e-14
                 end
             end
         end
@@ -110,33 +110,32 @@ using Test
     # ──────────────────────────────────────────────
     @testset "chebyshev_differentiation_matrix" begin
         @testset "D * x = 1" begin
-            for n in [5, 8, 16]
-                D = chebyshev_differentiation_matrix(n)
-                x = chebyshev_lobatto_nodes(n)
-                @test D * x ≈ ones(n) atol=1e-10
+            for k in [5, 8, 16]
+                D = chebyshev_differentiation_matrix(k)
+                x = chebyshev_lobatto_nodes(k)
+                @test D * x ≈ ones(k) atol=1e-10
             end
         end
 
         @testset "D * x² = 2x" begin
-            for n in [5, 8, 16]
-                D = chebyshev_differentiation_matrix(n)
-                x = chebyshev_lobatto_nodes(n)
+            for k in [5, 8, 16]
+                D = chebyshev_differentiation_matrix(k)
+                x = chebyshev_lobatto_nodes(k)
                 @test D * (x .^ 2) ≈ 2.0 .* x atol=1e-10
             end
         end
 
         @testset "D * x³ = 3x²" begin
-            for n in [8, 16]
-                D = chebyshev_differentiation_matrix(n)
-                x = chebyshev_lobatto_nodes(n)
+            for k in [8, 16]
+                D = chebyshev_differentiation_matrix(k)
+                x = chebyshev_lobatto_nodes(k)
                 @test D * (x .^ 3) ≈ 3.0 .* x .^ 2 atol=1e-10
             end
         end
 
         @testset "D * sin(x) ≈ cos(x)" begin
-            n = 32
-            D = chebyshev_differentiation_matrix(n)
-            x = chebyshev_lobatto_nodes(n)
+            D = chebyshev_differentiation_matrix(32)
+            x = chebyshev_lobatto_nodes(32)
             @test D * sin.(x) ≈ cos.(x) atol=1e-10
         end
 
@@ -158,7 +157,7 @@ using Test
 
         @testset "∫₀¹ exp(iωx) dx — constant amplitude" begin
             for ω in [10.0, 50.0, 100.0, 500.0]
-                result = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; n=32)
+                result = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=32)
                 exact = (exp(im * ω) - 1) / (im * ω)
                 @test abs(result - exact) < 1e-10
             end
@@ -166,7 +165,7 @@ using Test
 
         @testset "∫₀¹ x exp(iωx) dx — linear amplitude" begin
             for ω in [10.0, 100.0]
-                result = levin_integrate(x -> x, x -> ω * x, x -> ω, 0.0, 1.0; n=32)
+                result = levin_integrate(x -> x, x -> ω * x, x -> ω, 0.0, 1.0; k=32)
                 iω = im * ω
                 exact = exp(iω) * (iω - 1) / iω^2 + 1 / iω^2
                 @test abs(result - exact) < 1e-10
@@ -175,7 +174,7 @@ using Test
 
         @testset "∫₀^π exp(iωx) dx — different interval" begin
             ω = 50.0
-            result = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, π; n=32)
+            result = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, π; k=32)
             exact = (exp(im * ω * π) - 1) / (im * ω)
             @test abs(result - exact) < 1e-10
         end
@@ -186,56 +185,55 @@ using Test
             a, b = 1.0, 3.0
             exact = (exp(iω * b) * (b^2 / iω - 2b / iω^2 + 2 / iω^3) -
                      exp(iω * a) * (a^2 / iω - 2a / iω^2 + 2 / iω^3))
-            result = levin_integrate(x -> x^2, x -> ω * x, x -> ω, a, b; n=32)
+            result = levin_integrate(x -> x^2, x -> ω * x, x -> ω, a, b; k=32)
             @test abs(result - exact) < 1e-8
         end
 
         @testset "Argument errors" begin
             @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, x -> 1.0, 1.0, 0.0)
-            @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, x -> 1.0, 0.0, 1.0; n=1)
+            @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, x -> 1.0, 0.0, 1.0; k=1)
         end
     end
 
     # ──────────────────────────────────────────────
     # 6. levin_integrate — with g only (4-arg, numerical g')
     # ──────────────────────────────────────────────
-    @testset "levin_integrate (f, g) — numerical derivative" begin
+    @testset "levin_integrate (f, g) — spectral derivative" begin
 
         @testset "∫₀¹ exp(iωx) dx — linear phase" begin
             for ω in [10.0, 100.0, 500.0]
-                result = levin_integrate(x -> 1.0, x -> ω * x, 0.0, 1.0; n=32)
+                result = levin_integrate(x -> 1.0, x -> ω * x, 0.0, 1.0; k=32)
                 exact = (exp(im * ω) - 1) / (im * ω)
-                # Slightly relaxed tolerance due to finite-difference g'
-                @test abs(result - exact) < 1e-8
+                @test abs(result - exact) < 1e-10
             end
         end
 
-        @testset "∫₀¹ x exp(iωx) dx — linear amplitude, numerical g'" begin
+        @testset "∫₀¹ x exp(iωx) dx — linear amplitude, spectral g'" begin
             ω = 50.0
-            result = levin_integrate(x -> x, x -> ω * x, 0.0, 1.0; n=32)
+            result = levin_integrate(x -> x, x -> ω * x, 0.0, 1.0; k=32)
             iω = im * ω
             exact = exp(iω) * (iω - 1) / iω^2 + 1 / iω^2
-            @test abs(result - exact) < 1e-8
+            @test abs(result - exact) < 1e-10
         end
 
-        @testset "Nonlinear phase g(x) = x² — numerical g'" begin
+        @testset "Nonlinear phase g(x) = x² — spectral g'" begin
             # ∫₀¹ exp(i x²) dx — Fresnel-type integral
             # Use high-order 5-arg as reference
-            ref = levin_integrate(x -> 1.0, x -> x^2, x -> 2x, 0.0, 1.0; n=64)
-            result = levin_integrate(x -> 1.0, x -> x^2, 0.0, 1.0; n=64)
-            @test abs(result - ref) < 1e-6
+            ref = levin_integrate(x -> 1.0, x -> x^2, x -> 2x, 0.0, 1.0; k=64)
+            result = levin_integrate(x -> 1.0, x -> x^2, 0.0, 1.0; k=64)
+            @test abs(result - ref) < 1e-10
         end
 
         @testset "Agrees with 5-arg dispatch" begin
             ω = 100.0
-            r_5arg = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; n=32)
-            r_4arg = levin_integrate(x -> 1.0, x -> ω * x, 0.0, 1.0; n=32)
-            @test abs(r_5arg - r_4arg) < 1e-8
+            r_5arg = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=32)
+            r_4arg = levin_integrate(x -> 1.0, x -> ω * x, 0.0, 1.0; k=32)
+            @test abs(r_5arg - r_4arg) < 1e-10
         end
 
         @testset "Argument errors" begin
             @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, 1.0, 0.0)
-            @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, 0.0, 1.0; n=1)
+            @test_throws ArgumentError levin_integrate(x -> 1.0, x -> x, 0.0, 1.0; k=1)
         end
     end
 
@@ -243,34 +241,79 @@ using Test
     # 7. Spectral Convergence
     # ──────────────────────────────────────────────
     @testset "Spectral convergence" begin
-        # Use a non-trivial amplitude f(x) = cos(10x) so that small n
-        # genuinely cannot resolve it. f(x)=1 is exact at any n.
+        # Use a non-trivial amplitude f(x) = cos(10x) so that small k
+        # genuinely cannot resolve it. f(x)=1 is exact at any k.
         ω = 100.0
-        # Reference: high-order solve (n=64)
-        ref = levin_integrate(x -> cos(10x), x -> ω * x, x -> ω, 0.0, 1.0; n=64)
+        # Reference: high-order solve (k=64)
+        ref = levin_integrate(x -> cos(10x), x -> ω * x, x -> ω, 0.0, 1.0; k=64)
         errors = Float64[]
-        for n in [4, 8, 16, 32]
-            result = levin_integrate(x -> cos(10x), x -> ω * x, x -> ω, 0.0, 1.0; n=n)
+        for k in [4, 8, 16, 32]
+            result = levin_integrate(x -> cos(10x), x -> ω * x, x -> ω, 0.0, 1.0; k=k)
             push!(errors, abs(result - ref))
         end
-        # Errors should decrease as n increases
+        # Errors should decrease as k increases
         @test errors[1] > errors[3]
         @test errors[2] > errors[4]
-        # At n=32, should be very close to the n=64 reference
+        # At k=32, should be very close to the k=64 reference
         @test errors[4] < 1e-10
     end
 
     # ──────────────────────────────────────────────
-    # 8. Adaptive Levin Integration
+    # 8. Composite (fixed sub-intervals) Levin Integration
+    # ──────────────────────────────────────────────
+    @testset "levin_integrate composite (n panels)" begin
+
+        @testset "n=1 matches single-panel result" begin
+            ω = 100.0
+            r1 = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=16, n=1)
+            r0 = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=16)
+            @test r1 ≈ r0
+        end
+
+        @testset "Composite improves accuracy for rapidly-varying amplitude" begin
+            ω = 50.0
+            a, b = 0.0, 2.0
+            f = x -> exp(5x)
+            # Reference: high-order single panel
+            ref = levin_integrate(f, x -> ω * x, x -> ω, a, b; k=64)
+            # Low-order single panel
+            low = levin_integrate(f, x -> ω * x, x -> ω, a, b; k=8)
+            # Low-order with multiple panels
+            composite = levin_integrate(f, x -> ω * x, x -> ω, a, b; k=8, n=4)
+            @test abs(composite - ref) < abs(low - ref)
+        end
+
+        @testset "Composite with exact result" begin
+            ω = 100.0
+            exact = (exp(im * ω) - 1) / (im * ω)
+            result = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=16, n=4)
+            @test abs(result - exact) < 1e-10
+        end
+
+        @testset "Composite with numerical g' (4-arg)" begin
+            ω = 100.0
+            exact = (exp(im * ω) - 1) / (im * ω)
+            result = levin_integrate(x -> 1.0, x -> ω * x, 0.0, 1.0; k=16, n=4)
+            @test abs(result - exact) < 1e-10
+        end
+
+        @testset "Argument errors for n" begin
+            @test_throws ArgumentError levin_integrate(
+                x -> 1.0, x -> x, x -> 1.0, 0.0, 1.0; n=0)
+        end
+    end
+
+    # ──────────────────────────────────────────────
+    # 9. Adaptive Levin Integration
     # ──────────────────────────────────────────────
     @testset "levin_integrate_adaptive" begin
 
         @testset "Agrees with fixed-order on smooth integrand" begin
             ω = 100.0
             exact = (exp(im * ω) - 1) / (im * ω)
-            result_fixed    = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; n=16)
+            result_fixed    = levin_integrate(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0; k=16)
             result_adaptive = levin_integrate_adaptive(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0;
-                                                        n=16, atol=1e-12)
+                                                        k=16, atol=1e-12)
             @test abs(result_adaptive - exact) < 1e-10
             @test abs(result_adaptive - result_fixed) < 1e-10
         end
@@ -282,7 +325,7 @@ using Test
             exact = (exp(iω * b) * (b^2 / iω - 2b / iω^2 + 2 / iω^3) -
                      exp(iω * a) * (a^2 / iω - 2a / iω^2 + 2 / iω^3))
             result = levin_integrate_adaptive(x -> x^2, x -> ω * x, x -> ω, a, b;
-                                               n=16, atol=1e-12)
+                                               k=16, atol=1e-12)
             @test abs(result - exact) < 1e-10
         end
 
@@ -291,12 +334,12 @@ using Test
             a, b = 0.0, 2.0
             f = x -> exp(5x)
             # Reference: high-order fixed solve
-            ref = levin_integrate(f, x -> ω * x, x -> ω, a, b; n=64)
+            ref = levin_integrate(f, x -> ω * x, x -> ω, a, b; k=64)
             # Low-order fixed might be inaccurate
-            low = levin_integrate(f, x -> ω * x, x -> ω, a, b; n=8)
-            # Adaptive with n=8 per panel should refine and match reference
+            low = levin_integrate(f, x -> ω * x, x -> ω, a, b; k=8)
+            # Adaptive with k=8 per panel should refine and match reference
             adpt = levin_integrate_adaptive(f, x -> ω * x, x -> ω, a, b;
-                                             n=8, atol=1e-10)
+                                             k=8, atol=1e-10)
             @test abs(adpt - ref) < abs(low - ref)
         end
 
@@ -304,23 +347,23 @@ using Test
             ω = 100.0
             exact = (exp(im * ω) - 1) / (im * ω)
             result = levin_integrate_adaptive(x -> 1.0, x -> ω * x, 0.0, 1.0;
-                                               n=16, atol=1e-10)
-            @test abs(result - exact) < 1e-8
+                                               k=16, atol=1e-12)
+            @test abs(result - exact) < 1e-10
         end
 
         @testset "Both adaptive dispatches agree" begin
             ω = 100.0
             r_5arg = levin_integrate_adaptive(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0;
-                                               n=16, atol=1e-12)
+                                               k=16, atol=1e-12)
             r_4arg = levin_integrate_adaptive(x -> 1.0, x -> ω * x, 0.0, 1.0;
-                                               n=16, atol=1e-12)
-            @test abs(r_5arg - r_4arg) < 1e-8
+                                               k=16, atol=1e-12)
+            @test abs(r_5arg - r_4arg) < 1e-10
         end
 
         @testset "maxdepth is respected" begin
             ω = 100.0
             result = levin_integrate_adaptive(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0;
-                                               n=8, maxdepth=0)
+                                               k=8, maxdepth=0)
             @test isfinite(abs(result))
         end
 
@@ -328,9 +371,9 @@ using Test
             ω = 200.0
             exact = (exp(im * ω) - 1) / (im * ω)
             r_loose = levin_integrate_adaptive(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0;
-                                                n=4, atol=1e-4)
+                                                k=4, atol=1e-4)
             r_tight = levin_integrate_adaptive(x -> 1.0, x -> ω * x, x -> ω, 0.0, 1.0;
-                                                n=4, atol=1e-12)
+                                                k=4, atol=1e-12)
             @test abs(r_tight - exact) ≤ abs(r_loose - exact) + eps()
         end
 

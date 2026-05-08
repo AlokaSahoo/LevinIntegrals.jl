@@ -11,22 +11,22 @@
 =#
 
 """
-    chebyshev_lobatto_nodes(n::Integer)
+    chebyshev_lobatto_nodes(k::Integer)
 
-Compute `n` Chebyshev-Lobatto (Gauss-Lobatto-Chebyshev) points on ``[-1, 1]``.
+Compute `k` Chebyshev-Lobatto (Gauss-Lobatto-Chebyshev) points on ``[-1, 1]``.
 
 The nodes are defined as:
 ```math
-x_j = \\cos\\!\\left(\\frac{\\pi j}{n - 1}\\right), \\quad j = 0, 1, \\ldots, n-1
+x_j = \\cos\\!\\left(\\frac{\\pi j}{k - 1}\\right), \\quad j = 0, 1, \\ldots, k-1
 ```
 and are returned in **descending** order (from ``+1`` to ``-1``), which is the
 standard spectral convention.
 
 # Arguments
-- `n::Integer`: number of collocation points (must be ≥ 2).
+- `k::Integer`: number of collocation points (must be ≥ 2).
 
 # Returns
-- `Vector{Float64}`: the `n` Chebyshev-Lobatto nodes.
+- `Vector{Float64}`: the `k` Chebyshev-Lobatto nodes.
 
 # Examples
 ```julia
@@ -39,9 +39,9 @@ julia> chebyshev_lobatto_nodes(5)
  -1.0
 ```
 """
-function chebyshev_lobatto_nodes(n::Integer)
-    n < 2 && throw(ArgumentError("Number of nodes must be ≥ 2, got n = $n"))
-    return [cos(π * j / (n - 1)) for j in 0:(n - 1)]
+function chebyshev_lobatto_nodes(k::Integer)
+    k < 2 && throw(ArgumentError("Number of nodes must be ≥ 2, got k = $k"))
+    return [cos(π * j / (k - 1)) for j in 0:(k - 1)]
 end
 
 """
@@ -65,47 +65,47 @@ function map_nodes(nodes, a, b)
 end
 
 """
-    chebyshev_basis_matrix(nodes, n::Integer)
+    chebyshev_basis_matrix(nodes, k::Integer)
 
-Evaluate the first `n` Chebyshev polynomials ``T_0, T_1, \\ldots, T_{n-1}``
+Evaluate the first `k` Chebyshev polynomials ``T_0, T_1, \\ldots, T_{k-1}``
 at each point in `nodes`, returning the basis (Vandermonde-like) matrix.
 
 Uses the three-term recurrence:
 ```math
-T_0(x) = 1,\\quad T_1(x) = x,\\quad T_{k+1}(x) = 2x\\,T_k(x) - T_{k-1}(x).
+T_0(x) = 1,\\quad T_1(x) = x,\\quad T_{j+1}(x) = 2x\\,T_j(x) - T_{j-1}(x).
 ```
 
 # Arguments
 - `nodes`: vector of evaluation points.
-- `n::Integer`: number of basis functions.
+- `k::Integer`: number of basis functions.
 
 # Returns
-- `Matrix{Float64}` of size `(length(nodes), n)` where entry `(i, j)` is ``T_{j-1}(x_i)``.
+- `Matrix{Float64}` of size `(length(nodes), k)` where entry `(i, j)` is ``T_{j-1}(x_i)``.
 """
-function chebyshev_basis_matrix(nodes, n::Integer)
+function chebyshev_basis_matrix(nodes, k::Integer)
     m = length(nodes)
-    B = zeros(m, n)
+    B = zeros(m, k)
 
     # T_0(x) = 1
     B[:, 1] .= 1.0
 
-    if n ≥ 2
+    if k ≥ 2
         # T_1(x) = x
         B[:, 2] .= nodes
     end
 
-    # Three-term recurrence: T_{k+1}(x) = 2x T_k(x) - T_{k-1}(x)
-    @inbounds for k in 3:n
-        @. B[:, k] = 2.0 * nodes * B[:, k - 1] - B[:, k - 2]
+    # Three-term recurrence: T_{j+1}(x) = 2x T_j(x) - T_{j-1}(x)
+    @inbounds for j in 3:k
+        @. B[:, j] = 2.0 * nodes * B[:, j - 1] - B[:, j - 2]
     end
 
     return B
 end
 
 """
-    chebyshev_differentiation_matrix(n::Integer)
+    chebyshev_differentiation_matrix(k::Integer)
 
-Compute the `n × n` Chebyshev spectral differentiation matrix on the
+Compute the `k × k` Chebyshev spectral differentiation matrix on the
 Chebyshev-Lobatto grid.
 
 Uses the exact barycentric formula (see Weideman & Reddy, 2000;
@@ -118,29 +118,29 @@ D_{ij} = \\frac{c_i}{c_j} \\frac{(-1)^{i+j}}{x_i - x_j}, \\quad i \\neq j
 D_{ii} = -\\sum_{j \\neq i} D_{ij}
 ```
 
-where ``c_0 = c_{n-1} = 2`` and ``c_j = 1`` otherwise.
+where ``c_0 = c_{k-1} = 2`` and ``c_j = 1`` otherwise.
 
 # Arguments
-- `n::Integer`: number of collocation points (must be ≥ 2).
+- `k::Integer`: number of collocation points (must be ≥ 2).
 
 # Returns
-- `Matrix{Float64}` of size `(n, n)`: the spectral differentiation matrix.
+- `Matrix{Float64}` of size `(k, k)`: the spectral differentiation matrix.
 """
-function chebyshev_differentiation_matrix(n::Integer)
-    n < 2 && throw(ArgumentError("Need n ≥ 2 for differentiation matrix, got n = $n"))
+function chebyshev_differentiation_matrix(k::Integer)
+    k < 2 && throw(ArgumentError("Need k ≥ 2 for differentiation matrix, got k = $k"))
 
-    x = chebyshev_lobatto_nodes(n)
+    x = chebyshev_lobatto_nodes(k)
 
-    # Barycentric weights: c_0 = c_{n-1} = 2, c_j = 1 otherwise
-    c = ones(n)
+    # Barycentric weights: c_0 = c_{k-1} = 2, c_j = 1 otherwise
+    c = ones(k)
     c[1] = 2.0
-    c[n] = 2.0
+    c[k] = 2.0
 
-    D = zeros(n, n)
+    D = zeros(k, k)
 
-    @inbounds for i in 1:n
+    @inbounds for i in 1:k
         row_sum = 0.0
-        for j in 1:n
+        for j in 1:k
             if i != j
                 Dij = (c[i] / c[j]) * (-1)^(i + j) / (x[i] - x[j])
                 D[i, j] = Dij
