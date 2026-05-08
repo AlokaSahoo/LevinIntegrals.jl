@@ -49,24 +49,30 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     permissions:
-      actions: write # needed to allow julia-actions/cache to proactively delete old caches that it has created
+      actions: write
       contents: write
       statuses: write
+      pages: write
+      id-token: write
     steps:
       - uses: actions/checkout@v6
-      - uses: julia-actions/setup-julia@v3
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v3
         with:
           version: '1'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - uses: julia-actions/cache@v3
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-docdeploy@v1
+      - name: Build and deploy docs
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-      - name: Run doctests
-        shell: julia --project=docs --color=yes {0}
+          GKSwstype: "100"
         run: |
-          using Documenter: DocMeta, doctest
-          using LevinIntegrals
-          DocMeta.setdocmeta!(LevinIntegrals, :DocTestSetup, :(using LevinIntegrals); recursive=true)
-          doctest(LevinIntegrals)
+          julia --project=docs -e '
+            using Pkg
+            Pkg.develop(PackageSpec(path=pwd()))
+            Pkg.instantiate()
+            include("docs/make.jl")'
