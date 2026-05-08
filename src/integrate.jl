@@ -34,7 +34,7 @@ function _levin_core(f, g_prime, a, b, n::Integer)
 
     # 2. Function values
     f_vals     = complex.(f.(phys_nodes))
-    alpha_vals = complex.(im .* g_prime.(phys_nodes))
+    alpha_vals = im .* complex.(g_prime.(phys_nodes))
 
     # 3. Basis and differentiation matrices
     B = chebyshev_basis_matrix(ref_nodes, n)
@@ -81,7 +81,7 @@ function _integrate_gprime(g_prime, a, x; nquad::Integer = 64)
     t = range(a, x, length = nquad + 1)
     vals = g_prime.(t)
     h = (x - a) / nquad
-    return h * (vals[1] / 2 + sum(vals[2:end-1]) + vals[end] / 2)
+    return h * (vals[1] / 2 + @views(sum(vals[2:end-1])) + vals[end] / 2)
 end
 
 # ═══════════════════════════════════════════════════════════════════════════════

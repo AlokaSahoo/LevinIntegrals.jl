@@ -95,7 +95,7 @@ function chebyshev_basis_matrix(nodes, n::Integer)
     end
 
     # Three-term recurrence: T_{k+1}(x) = 2x T_k(x) - T_{k-1}(x)
-    for k in 3:n
+    @inbounds for k in 3:n
         @. B[:, k] = 2.0 * nodes * B[:, k - 1] - B[:, k - 2]
     end
 
@@ -138,17 +138,17 @@ function chebyshev_differentiation_matrix(n::Integer)
 
     D = zeros(n, n)
 
-    for i in 1:n
+    @inbounds for i in 1:n
+        row_sum = 0.0
         for j in 1:n
             if i != j
-                D[i, j] = (c[i] / c[j]) * (-1)^(i + j) / (x[i] - x[j])
+                Dij = (c[i] / c[j]) * (-1)^(i + j) / (x[i] - x[j])
+                D[i, j] = Dij
+                row_sum += Dij
             end
         end
-    end
-
-    # Diagonal: D_{ii} = -∑_{j≠i} D_{ij}  (negative sum trick ensures consistency)
-    for i in 1:n
-        D[i, i] = -sum(D[i, j] for j in 1:n if j != i)
+        # Diagonal: D_{ii} = -∑_{j≠i} D_{ij}  (negative sum trick)
+        D[i, i] = -row_sum
     end
 
     return D

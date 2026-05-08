@@ -55,8 +55,8 @@ function levin_collocation_solve(f_vals::AbstractVector,
                                   alpha_vals::AbstractVector)
     n = length(f_vals)
 
-    # Assemble the collocation matrix: A = D*B + diag(α)*B
-    A = D * B + Diagonal(alpha_vals) * B
+    # Assemble the collocation matrix: A = (D + diag(α)) * B  (single multiply)
+    A = (D + Diagonal(alpha_vals)) * B
 
     # Solve via QR factorization
     c = qr(A, ColumnNorm()) \ f_vals
