@@ -13,8 +13,6 @@ makedocs(;
         repo="github.com/AlokaSahoo/LevinIntegrals.jl",
         devbranch = "main", # or master, trunk, ...
         devurl = "dev",
-        # if you use something else than yourname.github.io/YourPackage.jl
-        deploy_url = "alokasahoo.github.io/LevinIntegrals.jl",
     ),
     pages=[
         "Home" => "index.md"
