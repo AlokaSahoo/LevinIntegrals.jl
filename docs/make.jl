@@ -2,7 +2,7 @@ using LevinIntegrals
 using Documenter
 using DocumenterVitepress
 
-DocMeta.setdocmeta!(LevinIntegrals, :DocTestSetup, :(using LevinIntegrals); recursive=true)
+# DocMeta.setdocmeta!(LevinIntegrals, :DocTestSetup, :(using LevinIntegrals); recursive=true)
 
 
 makedocs(;
