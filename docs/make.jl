@@ -1,24 +1,30 @@
 using LevinIntegrals
 using Documenter
+using DocumenterVitepress
 
 DocMeta.setdocmeta!(LevinIntegrals, :DocTestSetup, :(using LevinIntegrals); recursive=true)
 
+
 makedocs(;
     modules=[LevinIntegrals],
-    authors="Aloka Kumar Sahoo",
+    authors="Aloka Kumar Sahoo <aloka_s@ph.iitr.ac.in>",
     sitename="LevinIntegrals.jl",
-    doctest=true,
-    format=Documenter.HTML(;
-        repolink="https://github.com/AlokaSahoo/LevinIntegrals.jl",
-        edit_link="main",
-        assets=String[],
+    format = DocumenterVitepress.MarkdownVitepress(
+        repo="github.com/AlokaSahoo/LevinIntegrals.jl",
+        devbranch = "main", # or master, trunk, ...
+        devurl = "dev",
+        # if you use something else than yourname.github.io/YourPackage.jl
+        deploy_url = "alokasahoo.github.io/LevinIntegrals.jl",
     ),
     pages=[
-        "Home" => "index.md",
+        "Home" => "index.md"
     ],
 )
 
-deploydocs(;
-    repo="github.com/AlokaSahoo/LevinIntegrals.jl",
-    devbranch="main",
+DocumenterVitepress.deploydocs(;
+    repo = "github.com/AlokaSahoo/LevinIntegrals.jl",
+    target = joinpath(@__DIR__, "build"),
+    devbranch = "main",
+    branch = "gh-pages",
+    push_preview = true,
 )
