@@ -7,8 +7,9 @@ makedocs(;
     modules=[LevinIntegrals],
     authors="Aloka Kumar Sahoo",
     sitename="LevinIntegrals.jl",
+    doctest=true,
     format=Documenter.HTML(;
-        canonical="https://AlokaSahoo.github.io/LevinIntegrals.jl",
+        repolink=""https://github.com/AlokaSahoo/LevinIntegrals.jl",
         edit_link="main",
         assets=String[],
     ),
