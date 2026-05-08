@@ -60,7 +60,7 @@ x \\mapsto \\frac{b - a}{2} x + \\frac{a + b}{2}
 # Returns
 - `Vector`: the mapped nodes in ``[a, b]``.
 """
-function map_nodes(nodes, a, b)
+function map_nodes(nodes::AbstractVector{<:Real}, a::Real, b::Real)
     return @. (b - a) / 2 * nodes + (a + b) / 2
 end
 
@@ -82,7 +82,7 @@ T_0(x) = 1,\\quad T_1(x) = x,\\quad T_{j+1}(x) = 2x\\,T_j(x) - T_{j-1}(x).
 # Returns
 - `Matrix{Float64}` of size `(length(nodes), k)` where entry `(i, j)` is ``T_{j-1}(x_i)``.
 """
-function chebyshev_basis_matrix(nodes, k::Integer)
+function chebyshev_basis_matrix(nodes::AbstractVector{<:Real}, k::Integer)
     m = length(nodes)
     B = zeros(m, k)
 
