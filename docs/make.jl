@@ -15,7 +15,11 @@ makedocs(;
         devurl = "dev",
     ),
     pages=[
-        "Home" => "index.md"
+        "Home" => "index.md",
+        "Theory" => "theory.md",
+        "Basic Usage" => "basic_usage.md",
+        "Applications in SFA" => "applications_sfa.md",
+        "API Reference" => "api.md"
     ],
 )
 
