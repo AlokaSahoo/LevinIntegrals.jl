@@ -67,7 +67,7 @@ By default, the collocation system is solved using a column-pivoted QR factoriza
 You can find more details directly from the Julia REPL using the `?` help mode:
 
 ```julia
-help?> LevinSolver
+help?> ODESolver
 ```
 
 Here is an example demonstrating how to specify the solver:

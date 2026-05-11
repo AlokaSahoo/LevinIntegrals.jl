@@ -10,7 +10,7 @@
         A c = f
 
     where A = D·B + diag(α) · B, and solves it using the strategy specified by
-    a `LevinSolver` instance (QR, LU, or truncated SVD).
+    a `ODESolver` instance (QR, LU, or truncated SVD).
 =#
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -18,7 +18,7 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 
 """
-    LevinSolver
+    ODESolver
 
 Abstract supertype for Levin collocation solver strategies.
 
@@ -51,7 +51,7 @@ levin_integrate_adaptive(f, g, 0.0, 1.0; solver = TSVDSolver())
 levin_integrate_adaptive(f, g, 0.0, 1.0; solver = TSVDSolver(1e-12))
 ```
 """
-abstract type LevinSolver end
+abstract type ODESolver end
 
 """
     QRSolver()
@@ -62,7 +62,7 @@ This is the default solver. It is backward-compatible with the original
 implementation and provides a good balance between speed and numerical stability.
 Column pivoting makes it robust against mildly rank-deficient systems.
 """
-struct QRSolver <: LevinSolver end
+struct QRSolver <: ODESolver end
 
 """
     LUSolver()
@@ -73,7 +73,7 @@ Slightly faster than `QRSolver` for well-conditioned systems, but provides less
 regularization. Suitable when the collocation matrix is known to be well-conditioned
 (e.g., moderate `k`, smooth amplitude, and non-degenerate phase).
 """
-struct LUSolver <: LevinSolver end
+struct LUSolver <: ODESolver end
 
 """
     TSVDSolver(tol::Float64 = 1e-14)
@@ -101,7 +101,7 @@ solver = TSVDSolver()
 solver = TSVDSolver(1e-12)
 ```
 """
-struct TSVDSolver <: LevinSolver
+struct TSVDSolver <: ODESolver
     tol::Float64
 end
 TSVDSolver() = TSVDSolver(1e-14)
@@ -130,7 +130,7 @@ end
 Assemble and solve the Levin collocation linear system ``A \\mathbf{c} = \\mathbf{f}``,
 where ``A = (D + \\operatorname{diag}(\\boldsymbol{α})) \\cdot B``.
 
-The `solver` argument selects the factorization strategy (see [`LevinSolver`](@ref)).
+The `solver` argument selects the factorization strategy (see [`ODESolver`](@ref)).
 Omitting `solver` defaults to [`QRSolver`](@ref).
 
 # Arguments
@@ -139,7 +139,7 @@ Omitting `solver` defaults to [`QRSolver`](@ref).
 - `D::AbstractMatrix`: the `k × k` scaled spectral differentiation matrix.
 - `B::AbstractMatrix`: the `k × k` Chebyshev basis matrix evaluated at the nodes.
 - `alpha_vals::AbstractVector`: values of ``α(x_j) = i g'(x_j)`` at the nodes.
-- `solver::LevinSolver`: factorization strategy (default `QRSolver()`).
+- `solver::ODESolver`: factorization strategy (default `QRSolver()`).
 
 # Returns
 - `Vector`: coefficient vector ``\\mathbf{c}`` of length `k`.

@@ -78,4 +78,4 @@ val_fixed = levin_integrate(f, g, g_prime, a, b; n=1)
 val_adapt = levin_integrate_adaptive(f, g, g_prime, a, b)
 ```
 
-For more details on the functions and their keyword arguments, please see the [API Reference](https://AlokaSahoo.github.io/LevinIntegrals.jl/dev/api/) and [Basic Usage](https://AlokaSahoo.github.io/LevinIntegrals.jl/dev/basic_usage/) pages in the documentation.
+For more details on the functions and their keyword arguments, please see the [API Reference](https://AlokaSahoo.github.io/LevinIntegrals.jl/dev/api) and [Basic Usage](https://AlokaSahoo.github.io/LevinIntegrals.jl/dev/basic_usage) pages in the documentation.

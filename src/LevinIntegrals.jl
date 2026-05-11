@@ -13,7 +13,7 @@ export levin_integrate
 export levin_integrate_adaptive
 
 # Solver strategy types
-export LevinSolver
+export ODESolver
 export QRSolver
 export LUSolver
 export TSVDSolver

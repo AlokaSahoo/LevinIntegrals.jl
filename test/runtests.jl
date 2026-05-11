@@ -397,10 +397,10 @@ using Test
         gp    = x -> ω
 
         @testset "Solver type hierarchy" begin
-            @test QRSolver()    isa LevinSolver
-            @test LUSolver()    isa LevinSolver
-            @test TSVDSolver()  isa LevinSolver
-            @test TSVDSolver(1e-12) isa LevinSolver
+            @test QRSolver()    isa ODESolver
+            @test LUSolver()    isa ODESolver
+            @test TSVDSolver()  isa ODESolver
+            @test TSVDSolver(1e-12) isa ODESolver
             @test TSVDSolver().tol  == 1e-14
             @test TSVDSolver(1e-10).tol == 1e-10
         end

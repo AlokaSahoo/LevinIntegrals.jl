@@ -8,7 +8,7 @@
     - levin_integrate    : fixed-order Levin integration (three dispatch methods)
     - levin_integrate_adaptive : adaptive h-refinement Levin integration
 
-    All public functions accept an optional `solver::LevinSolver` keyword
+    All public functions accept an optional `solver::ODESolver` keyword
     (default `QRSolver()`) that selects the linear-system factorization strategy.
 =#
 
@@ -30,7 +30,7 @@ Performs steps 1–5 of the Levin collocation algorithm:
 
 Returns `(p_a, p_b, phys_nodes)` — the caller handles the oscillator evaluation.
 """
-function _levin_core(f::F, g_prime::GP, a::Real, b::Real, k::Integer, solver::LevinSolver) where {F, GP}
+function _levin_core(f::F, g_prime::GP, a::Real, b::Real, k::Integer, solver::ODESolver) where {F, GP}
     # 1. Nodes
     ref_nodes  = chebyshev_lobatto_nodes(k)
     phys_nodes = map_nodes(ref_nodes, a, b)
@@ -70,7 +70,7 @@ finite differences.
 Returns `(p_a, p_b, g_a, g_b)` — the endpoint antiderivative values and the
 phase values ``g(a), g(b)`` (already available from evaluating `g` at the nodes).
 """
-function _levin_core_from_g(f::F, g::G, a::Real, b::Real, k::Integer, solver::LevinSolver) where {F, G}
+function _levin_core_from_g(f::F, g::G, a::Real, b::Real, k::Integer, solver::ODESolver) where {F, G}
     # 1. Nodes
     ref_nodes  = chebyshev_lobatto_nodes(k)
     phys_nodes = map_nodes(ref_nodes, a, b)
@@ -110,7 +110,7 @@ end
 Compute the Levin integral on a single panel ``[a, b]`` with `k` collocation
 points, using spectral differentiation for ``g'``. Internal helper — not exported.
 """
-function _levin_integrate_interval(f::F, g::G, a::Real, b::Real, k::Integer, solver::LevinSolver) where {F, G}
+function _levin_integrate_interval(f::F, g::G, a::Real, b::Real, k::Integer, solver::ODESolver) where {F, G}
     p_a, p_b, g_a, g_b = _levin_core_from_g(f, g, a, b, k, solver)
 
     w_a = exp(im * g_a)
@@ -125,7 +125,7 @@ end
 Compute the Levin integral on a single panel ``[a, b]`` with `k` collocation
 points. Internal helper — not exported.
 """
-function _levin_integrate_interval(f::F, g::G, g_prime::GP, a::Real, b::Real, k::Integer, solver::LevinSolver) where {F, G, GP}
+function _levin_integrate_interval(f::F, g::G, g_prime::GP, a::Real, b::Real, k::Integer, solver::ODESolver) where {F, G, GP}
     p_a, p_b, _ = _levin_core(f, g_prime, a, b, k, solver)
 
     w_a = exp(im * g(a))
@@ -164,8 +164,8 @@ collocation points, summing the results (composite Levin rule).
 # Keyword Arguments
 - `k::Integer = 16`: number of collocation points per panel.
 - `n::Integer = 1`: number of sub-intervals (panels) to divide ``[a, b]`` into.
-- `solver::LevinSolver = QRSolver()`: factorization strategy for the collocation
-  system. See [`LevinSolver`](@ref) for available options.
+- `solver::ODESolver = QRSolver()`: factorization strategy for the collocation
+  system. See [`ODESolver`](@ref) for available options.
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -190,7 +190,7 @@ result = levin_integrate(x -> 1.0, x -> ω*x, x -> ω, 0.0, 1.0; solver=TSVDSolv
 function levin_integrate(f::F, g::G, g_prime::GP, a::Real, b::Real;
                           k::Integer = 16,
                           n::Integer = 1,
-                          solver::LevinSolver = QRSolver()) where {F, G, GP}
+                          solver::ODESolver = QRSolver()) where {F, G, GP}
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     k < 2 && throw(ArgumentError("Need at least 2 collocation points, got k = $k"))
     n < 1 && throw(ArgumentError("Need at least 1 sub-interval, got n = $n"))
@@ -223,7 +223,7 @@ Chebyshev differentiation matrix — no finite differences are needed.
 # Keyword Arguments
 - `k::Integer = 16`: number of collocation points per panel.
 - `n::Integer = 1`: number of sub-intervals (panels) to divide ``[a, b]`` into.
-- `solver::LevinSolver = QRSolver()`: factorization strategy. See [`LevinSolver`](@ref).
+- `solver::ODESolver = QRSolver()`: factorization strategy. See [`ODESolver`](@ref).
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -240,7 +240,7 @@ result = levin_integrate(x -> 1.0, x -> ω*x, 0.0, 1.0; solver=TSVDSolver())
 function levin_integrate(f::F, g::G, a::Real, b::Real;
                           k::Integer = 16,
                           n::Integer = 1,
-                          solver::LevinSolver = QRSolver()) where {F, G}
+                          solver::ODESolver = QRSolver()) where {F, G}
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     k < 2 && throw(ArgumentError("Need at least 2 collocation points, got k = $k"))
     n < 1 && throw(ArgumentError("Need at least 1 sub-interval, got n = $n"))
@@ -288,7 +288,7 @@ tolerance, the sub-interval is bisected and each half is refined recursively.
 - `atol::Real = 1e-12`: absolute error tolerance.
 - `rtol::Real = 1e-12`: relative error tolerance.
 - `maxdepth::Integer = 20`: maximum recursion depth.
-- `solver::LevinSolver = QRSolver()`: factorization strategy. See [`LevinSolver`](@ref).
+- `solver::ODESolver = QRSolver()`: factorization strategy. See [`ODESolver`](@ref).
 
 # Returns
 - `ComplexF64`: the value of the integral.
@@ -309,7 +309,7 @@ function levin_integrate_adaptive(f::F, g::G, g_prime::GP, a::Real, b::Real;
                                    atol::Real = 1e-12,
                                    rtol::Real = 1e-12,
                                    maxdepth::Integer = 20,
-                                   solver::LevinSolver = QRSolver()) where {F, G, GP}
+                                   solver::ODESolver = QRSolver()) where {F, G, GP}
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     return _adaptive_levin(f, g, g_prime, a, b, k, atol, rtol, maxdepth, 0, solver)
 end
@@ -328,7 +328,7 @@ function levin_integrate_adaptive(f::F, g::G, a::Real, b::Real;
                                    atol::Real = 1e-12,
                                    rtol::Real = 1e-12,
                                    maxdepth::Integer = 20,
-                                   solver::LevinSolver = QRSolver()) where {F, G}
+                                   solver::ODESolver = QRSolver()) where {F, G}
     a ≥ b && throw(ArgumentError("Require a < b, got a = $a, b = $b"))
     return _adaptive_levin(f, g, a, b, k, atol, rtol, maxdepth, 0, solver)
 end
@@ -340,7 +340,7 @@ Recursive bisection engine for adaptive Levin integration.
 """
 function _adaptive_levin(f::F, g::G, g_prime::GP, a::Real, b::Real, k::Integer,
                           atol::Real, rtol::Real, maxdepth::Integer, depth::Integer,
-                          solver::LevinSolver) where {F, G, GP}
+                          solver::ODESolver) where {F, G, GP}
     # Coarse estimate: single panel [a, b]
     I_coarse = _levin_integrate_interval(f, g, g_prime, a, b, k, solver)
 
@@ -374,7 +374,7 @@ differentiation for ``g'``.
 """
 function _adaptive_levin(f::F, g::G, a::Real, b::Real, k::Integer,
                           atol::Real, rtol::Real, maxdepth::Integer, depth::Integer,
-                          solver::LevinSolver) where {F, G}
+                          solver::ODESolver) where {F, G}
     # Coarse estimate: single panel [a, b]
     I_coarse = _levin_integrate_interval(f, g, a, b, k, solver)
 
